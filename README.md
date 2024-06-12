@@ -1,2 +1,2 @@
 # Testrepo
-testrespo to do CI/CD test.
+testrespo to do CI/CD test..
