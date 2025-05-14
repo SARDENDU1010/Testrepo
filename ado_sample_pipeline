@@ -1,0 +1,51 @@
+trigger: manual
+
+parameters:
+  - name: rfcNumber
+    displayName: 'Enter the RFC Number (e.g., RFC1234)'
+    type: string
+
+stages:
+  - stage: DownloadRFC
+    displayName: 'Download RFC Folder as ZIP'
+    jobs:
+      - job: SearchAndDownload
+        displayName: 'Search for RFC folder and zip it'
+        pool:
+          vmImage: 'windows-latest'
+        steps:
+
+          - checkout: self
+
+          - task: PowerShell@2
+            displayName: 'Find and Zip RFC Folder'
+            inputs:
+              targetType: 'inline'
+              script: |
+                $rfcNumber = '${{ parameters.rfcNumber }}'
+                $repoRoot = "$(Build.SourcesDirectory)"
+
+                Write-Host "Searching for folder matching RFC: $rfcNumber"
+
+                $matchingFolder = Get-ChildItem -Path $repoRoot -Directory -Recurse |
+                                  Where-Object { $_.Name -eq $rfcNumber } |
+                                  Select-Object -First 1
+
+                if (-not $matchingFolder) {
+                  Write-Error "No folder found with name: $rfcNumber"
+                  exit 1
+                }
+
+                $zipPath = Join-Path $repoRoot "$rfcNumber.zip"
+
+                Write-Host "Zipping folder: $($matchingFolder.FullName) to $zipPath"
+                Compress-Archive -Path "$($matchingFolder.FullName)\*" -DestinationPath $zipPath -Force
+
+                Write-Host "##vso[task.setvariable variable=ZipPath]$zipPath"
+
+          - task: PublishBuildArtifacts@1x
+            displayName: 'Publish RFC ZIP Artifact'
+            inputs:
+              PathtoPublish: '$(ZipPath)'
+              ArtifactName: 'RFC_Zip'
+              publishLocation: 'Container'
