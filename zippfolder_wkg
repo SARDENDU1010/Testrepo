@@ -1,0 +1,38 @@
+trigger: none  # Manual run only
+
+parameters:
+  - name: folderName
+    displayName: 'Enter the folder name to search and zip'
+    type: string
+    default: abc123
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+jobs:
+  - job: ZipFolder
+    displayName: 'Search and zip folder'
+    steps:
+      - script: |
+          echo "##vso[task.setvariable variable=folderNameVar]${{ parameters.folderName }}"
+        displayName: 'Set folderName as variable'
+
+      - script: |
+          echo "Searching for folder: $(folderNameVar)"
+          found_folder=$(find . -type d -name "$(folderNameVar)" | head -n 1)
+          if [ -z "$found_folder" ]; then
+            echo "##vso[task.logissue type=error]Folder '$(folderNameVar)' not found in the repository."
+            exit 1
+          fi
+          echo "Found folder: $found_folder"
+          zip_name="$(folderNameVar).zip"
+          zip -r "$zip_name" "$found_folder"
+          echo "Zipped to: $zip_name"
+        displayName: 'Search and zip the folder'
+
+      - task: PublishBuildArtifacts@1
+        inputs:
+          PathtoPublish: '$(folderNameVar).zip'
+          ArtifactName: 'ZippedFolder'
+          publishLocation: 'Container'
+        displayName: 'Publish zipped folder as artifact'
